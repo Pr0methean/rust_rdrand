@@ -94,7 +94,8 @@ pub struct RdRand(());
 /// This generator produces high-entropy output and is suited to seed other pseudo-random
 /// generators.
 ///
-/// This instruction is only supported by recent architectures such as Intel Broadwell and AMD Zen.
+/// This instruction is only supported by recent architectures such as Intel Broadwell, AMD Zen,
+/// and AArch64 Armv8.5-A.
 ///
 /// This generator is not intended for general random number generation purposes and should be used
 /// to seed other generators implementing [rand_core::SeedableRng].
