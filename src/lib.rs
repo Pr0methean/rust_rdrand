@@ -106,7 +106,7 @@ mod arch {
     pub use core::arch::x86_64::*;
 
     #[cfg(target_arch = "x86")]
-    pub(crate) unsafe fn _rdrand64_step(dest: &mut u64) -> i32 {
+    pub(crate) fn _rdrand64_step(dest: &mut u64) -> i32 {
         let mut ret1: u32 = 0;
         let mut ret2: u32 = 0;
         let ok = _rdrand32_step(&mut ret1) & _rdrand32_step(&mut ret2);
@@ -115,7 +115,7 @@ mod arch {
     }
 
     #[cfg(target_arch = "x86")]
-    pub(crate) unsafe fn _rdseed64_step(dest: &mut u64) -> i32 {
+    pub(crate) fn _rdseed64_step(dest: &mut u64) -> i32 {
         let mut ret1: u32 = 0;
         let mut ret2: u32 = 0;
         let ok = _rdseed32_step(&mut ret1) & _rdseed32_step(&mut ret2);
@@ -133,7 +133,7 @@ mod arch {
     }
 
     #[cfg(target_arch = "aarch64")]
-    pub(crate) unsafe fn rand32(out: &mut u32) -> i32 {
+    pub(crate) fn rand32(out: &mut u32) -> i32 {
         let mut out64 = 0u64;
         let status = unsafe { rand(&mut out64) };
         *out = out64 as u32;
@@ -141,7 +141,7 @@ mod arch {
     }
 
     #[cfg(target_arch = "aarch64")]
-    pub(crate) unsafe fn seed(out: &mut u64) -> i32 {
+    pub(crate) fn seed(out: &mut u64) -> i32 {
         unsafe extern "C" {
             #[link_name = "llvm.aarch64.rndrrs"]
             pub fn rndrrs(out: *mut u64) -> i32;
@@ -381,7 +381,7 @@ macro_rules! impl_rand {
 
                     let destlen = dest.len();
                     if destlen > ::core::mem::size_of::<$maxty>() {
-                        let (left, mid, right) = dest.align_to_mut();
+                        let (left, mid, right) = unsafe { dest.align_to_mut() };
                         for el in mid {
                             *el = loop_rand!($loop_mode, $maxty, $maxstep)?;
                         }
