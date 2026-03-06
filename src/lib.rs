@@ -60,10 +60,12 @@
 //!
 //! [Agner’s instruction tables]: http://agner.org/optimize/
 #![cfg_attr(not(feature = "std"), no_std)]
-
+#![cfg_attr(target_arch = "aarch64", feature(link_llvm_intrinsics))]
+#![cfg_attr(target_arch = "aarch64", allow(internal_features))]
 pub mod changelog;
 mod errors;
 
+use core::hint::spin_loop;
 pub use errors::ErrorCode;
 use rand_core::{CryptoRng, Error, RngCore};
 
@@ -125,6 +127,56 @@ mod arch {
         *dest = (ret1 as u64) << 32 | (ret2 as u64);
         ok
     }
+
+    #[cfg(target_arch = "aarch64")]
+    pub(crate) unsafe fn rand(out: &mut u64) -> i32 {
+        unsafe extern "C" {
+            #[link_name = "llvm.aarch64.rndr"]
+            pub fn rndr(out: *mut u64) -> i32;
+        }
+        unsafe { rndr(out as *mut u64) }
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    pub(crate) unsafe fn rand32(out: &mut u32) -> i32 {
+        let mut out64 = 0u64;
+        let status = unsafe { rand(&mut out64) };
+        *out = out64 as u32;
+        status
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    pub(crate) unsafe fn rand16(out: &mut u16) -> i32 {
+        let mut out64 = 0u64;
+        let status = unsafe { rand(&mut out64) };
+        *out = out64 as u16;
+        status
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    pub(crate) unsafe fn seed(out: &mut u64) -> i32 {
+        unsafe extern "C" {
+            #[link_name = "llvm.aarch64.rndrrs"]
+            pub fn rndrrs(out: *mut u64) -> i32;
+        }
+        unsafe { rndrrs(out as *mut u64) }
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    pub(crate) unsafe fn seed32(out: &mut u32) -> i32 {
+        let mut out64 = 0u64;
+        let status = unsafe { seed(&mut out64) };
+        *out = out64 as u32;
+        status
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    pub(crate) unsafe fn seed16(out: &mut u16) -> i32 {
+        let mut out64 = 0u64;
+        let status = unsafe { seed(&mut out64) };
+        *out = out64 as u16;
+        status
+    }
 }
 
 // See the following documentation for usage (in particular wrt retries) recommendations:
@@ -153,35 +205,39 @@ macro_rules! loop_rand {
                 break Err(ErrorCode::HardwareFailure);
             }
             idx += 1;
-            arch::_mm_pause();
+            spin_loop();
         }
     }};
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
 fn authentic_amd() -> bool {
-    let cpuid0 = unsafe { arch::__cpuid(0) };
+    let cpuid0 = arch::__cpuid(0);
     matches!(
         (cpuid0.ebx, cpuid0.ecx, cpuid0.edx),
         (0x68747541, 0x444D4163, 0x69746E65)
     )
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
 fn amd_family(cpuid1: &arch::CpuidResult) -> u32 {
     ((cpuid1.eax >> 8) & 0xF) + ((cpuid1.eax >> 20) & 0xFF)
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
 fn has_rdrand(cpuid1: &arch::CpuidResult) -> bool {
     const FLAG: u32 = 1 << 30;
     cpuid1.ecx & FLAG == FLAG
 }
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[inline(always)]
 fn has_rdseed() -> bool {
     const FLAG: u32 = 1 << 18;
-    unsafe { arch::__cpuid(7).ebx & FLAG == FLAG }
+    (arch::__cpuid(7).ebx & FLAG) == FLAG
 }
 
 /// NB: On AMD processor families < 0x17, we want to unconditionally disable RDRAND
@@ -194,20 +250,25 @@ fn has_rdseed() -> bool {
 ///
 /// We take extra care to do so even if `-Ctarget-features=+rdrand` have been
 /// specified, in order to prevent users from shooting themselves in their feet.
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 const FIRST_GOOD_AMD_FAMILY: u32 = 0x17;
 
 macro_rules! is_available {
     ("rdrand") => {{
         if authentic_amd() {
-            let cpuid1 = unsafe { arch::__cpuid(1) };
+            let cpuid1 = arch::__cpuid(1);
             has_rdrand(&cpuid1) && amd_family(&cpuid1) >= FIRST_GOOD_AMD_FAMILY
         } else {
-            cfg!(target_feature = "rdrand") || has_rdrand(&unsafe { arch::__cpuid(1) })
+            cfg!(target_feature = "rdrand") || has_rdrand(&arch::__cpuid(1))
         }
+    }};
+    ("rand") => {{
+        let mut _test = 0u64;
+        unsafe { crate::arch::rand(&mut _test) == 0 }
     }};
     ("rdseed") => {{
         if authentic_amd() {
-            amd_family(&unsafe { arch::__cpuid(1) }) >= FIRST_GOOD_AMD_FAMILY && has_rdseed()
+            amd_family(&arch::__cpuid(1)) >= FIRST_GOOD_AMD_FAMILY && has_rdseed()
         } else {
             cfg!(target_feature = "rdrand") || has_rdseed()
         }
@@ -215,7 +276,7 @@ macro_rules! is_available {
 }
 
 macro_rules! impl_rand {
-    ($gen:ident, $feat:tt, $step16: path, $step32:path, $step64:path,
+    ($gen:ident, $feat:tt, $loop_mode:tt, $step16: path, $step32:path, $step64:path,
      maxstep = $maxstep:path, maxty = $maxty: ty) => {
         impl $gen {
             /// Create a new instance of the random number generator.
@@ -262,7 +323,7 @@ macro_rules! impl_rand {
             pub fn try_next_u16(&self) -> Result<u16, ErrorCode> {
                 #[target_feature(enable = $feat)]
                 unsafe fn imp() -> Result<u16, ErrorCode> {
-                    loop_rand!($feat, u16, $step16)
+                    loop_rand!($loop_mode, u16, $step16)
                 }
                 unsafe { imp() }
             }
@@ -282,7 +343,7 @@ macro_rules! impl_rand {
             pub fn try_next_u32(&self) -> Result<u32, ErrorCode> {
                 #[target_feature(enable = $feat)]
                 unsafe fn imp() -> Result<u32, ErrorCode> {
-                    loop_rand!($feat, u32, $step32)
+                    loop_rand!($loop_mode, u32, $step32)
                 }
                 unsafe { imp() }
             }
@@ -305,7 +366,7 @@ macro_rules! impl_rand {
             pub fn try_next_u64(&self) -> Result<u64, ErrorCode> {
                 #[target_feature(enable = $feat)]
                 unsafe fn imp() -> Result<u64, ErrorCode> {
-                    loop_rand!($feat, u64, $step64)
+                    loop_rand!($loop_mode, u64, $step64)
                 }
                 unsafe { imp() }
             }
@@ -344,7 +405,7 @@ macro_rules! impl_rand {
                             }
                             if buffer.is_empty() {
                                 word =
-                                    unsafe { loop_rand!($feat, $maxty, $maxstep) }?.to_ne_bytes();
+                                    unsafe { loop_rand!($loop_mode, $maxty, $maxstep) }?.to_ne_bytes();
                                 buffer = &word[..];
                             }
                             let len = left.len().min(buffer.len());
@@ -361,7 +422,7 @@ macro_rules! impl_rand {
                     if destlen > ::core::mem::size_of::<$maxty>() {
                         let (left, mid, right) = dest.align_to_mut();
                         for el in mid {
-                            *el = loop_rand!($feat, $maxty, $maxstep)?;
+                            *el = loop_rand!($loop_mode, $maxty, $maxstep)?;
                         }
 
                         slow_fill_bytes(left, right)
@@ -461,6 +522,7 @@ macro_rules! impl_rand {
 impl_rand!(
     RdRand,
     "rdrand",
+    "rdrand",
     arch::_rdrand16_step,
     arch::_rdrand32_step,
     arch::_rdrand64_step,
@@ -470,6 +532,7 @@ impl_rand!(
 #[cfg(target_arch = "x86_64")]
 impl_rand!(
     RdSeed,
+    "rdseed",
     "rdseed",
     arch::_rdseed16_step,
     arch::_rdseed32_step,
@@ -481,6 +544,7 @@ impl_rand!(
 impl_rand!(
     RdRand,
     "rdrand",
+    "rdrand",
     arch::_rdrand16_step,
     arch::_rdrand32_step,
     arch::_rdrand64_step,
@@ -491,11 +555,34 @@ impl_rand!(
 impl_rand!(
     RdSeed,
     "rdseed",
+    "rdseed",
     arch::_rdseed16_step,
     arch::_rdseed32_step,
     arch::_rdseed64_step,
     maxstep = arch::_rdseed32_step,
     maxty = u32
+);
+#[cfg(target_arch = "aarch64")]
+impl_rand!(
+    RdRand,
+    "rand",
+    "rdrand",
+    arch::rand16,
+    arch::rand32,
+    arch::rand,
+    maxstep = arch::rand,
+    maxty = u64
+);
+#[cfg(target_arch = "aarch64")]
+impl_rand!(
+    RdSeed,
+    "rand",
+    "rdseed",
+    arch::seed16,
+    arch::seed32,
+    arch::seed,
+    maxstep = arch::seed,
+    maxty = u64
 );
 
 #[cfg(test)]
