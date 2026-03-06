@@ -38,10 +38,7 @@ jobs:
     steps:
       - name: CPU info (Unix)
         if: ${{ matrix.os != 'windows-11-arm' }}
-        run: lscpu
-      - name: CPU info (Windows)
-        if: ${{ matrix.os == 'windows-11-arm' }}
-        run: wmic cpu
+        run: cat /proc/cpuinfo
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
