@@ -8,7 +8,7 @@ license = "ISC"
 repository = "https://github.com/nagisa/rust_rdrand/"
 documentation = "https://docs.rs/rdrand/0.8.2/"
 edition = "2024"
-rust-version = "1.87.0"
+rust-version = "1.86.0"
 
 [[bench]]
 name = "rdrand"
