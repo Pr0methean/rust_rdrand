@@ -12,14 +12,6 @@ pub enum ErrorCode {
     HardwareFailure,
 }
 
-impl ErrorCode {
-    const fn as_randcore_code(self) -> core::num::NonZeroU32 {
-        /// Arbitrary, off top of head bitmask for error codes that come from rdrand
-        const RDRAND_TAG: u32 = rand_core::Error::CUSTOM_START + 0x3D34_7D00;
-        unsafe { core::num::NonZeroU32::new_unchecked(RDRAND_TAG + self as u32) }
-    }
-}
-
 impl core::error::Error for ErrorCode {}
 
 impl Display for ErrorCode {
