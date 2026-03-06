@@ -46,6 +46,8 @@ jobs:
         with:
           command: test
           args: --manifest-path=Cargo.toml -- --nocapture
+        env:
+          RUSTFLAGS: '-Zverify-llvm-ir'
   bench:
     runs-on: ${{ matrix.os }}
     strategy:
