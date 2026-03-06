@@ -7,7 +7,8 @@ keywords = ["rand", "rdrand", "rdseed", "random"]
 license = "ISC"
 repository = "https://github.com/nagisa/rust_rdrand/"
 documentation = "https://docs.rs/rdrand/0.8.2/"
-edition = "2018"
+edition = "2024"
+rust-version = "1.86.0"
 
 [[bench]]
 name = "rdrand"

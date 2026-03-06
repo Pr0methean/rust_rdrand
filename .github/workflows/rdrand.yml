@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust_toolchain: [nightly, stable, 1.85.0]
+        rust_toolchain: [nightly, stable, 1.86.0]
         os: [ubuntu-latest, windows-latest, macos-26-intel]
         flags: ["", "--no-default-features", "--release", "--release --no-default-features"]
     timeout-minutes: 20
