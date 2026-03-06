@@ -53,7 +53,6 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "std")]
     fn error_code_error() {
         fn assert_error<T: Error>() {}
         assert_error::<ErrorCode>();
