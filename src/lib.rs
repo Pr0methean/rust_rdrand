@@ -256,8 +256,7 @@ macro_rules! is_available {
         }
     }};
     ("rand") => {{
-        let mut _test = 0u64;
-        unsafe { crate::arch::rand(&mut _test) == 0 }
+        notstd_detect::is_aarch64_feature_detected!("rand")
     }};
     ("rdseed") => {{
         #[allow(unused_unsafe)]
