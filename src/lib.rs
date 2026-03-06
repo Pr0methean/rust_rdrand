@@ -124,12 +124,21 @@ mod arch {
     }
 
     #[cfg(target_arch = "aarch64")]
+    #[repr(C)]
+    struct RawReturn {
+        pub value: i64,
+        pub status: bool,
+    }
+
+    #[cfg(target_arch = "aarch64")]
     pub(crate) unsafe fn rand(out: &mut u64) -> i32 {
         unsafe extern "C" {
             #[link_name = "llvm.aarch64.rndr"]
-            pub fn rndr(out: *mut u64) -> i32;
+            pub fn rndr() -> RawReturn;
         }
-        unsafe { rndr(out as *mut u64) }
+        let RawReturn { value, status } = unsafe { rndr() };
+        *out = value as u64;
+        status as i32
     }
 
     #[cfg(target_arch = "aarch64")]
@@ -144,9 +153,11 @@ mod arch {
     pub(crate) unsafe fn seed(out: &mut u64) -> i32 {
         unsafe extern "C" {
             #[link_name = "llvm.aarch64.rndrrs"]
-            pub fn rndrrs(out: *mut u64) -> i32;
+            pub fn rndrrs() -> RawReturn;
         }
-        unsafe { rndrrs(out as *mut u64) }
+        let RawReturn { value, status } = unsafe { rndrrs() };
+        *out = value as u64;
+        status as i32
     }
 
     #[cfg(target_arch = "aarch64")]
@@ -166,7 +177,7 @@ macro_rules! loop_rand {
         let mut idx = 0;
         loop {
             let mut el: $el = 0;
-            if $step(&mut el) != 0 {
+            if unsafe { $step(&mut el) } != 0 {
                 break Ok(el);
             } else if idx == 10 {
                 break Err(ErrorCode::HardwareFailure);
@@ -178,7 +189,7 @@ macro_rules! loop_rand {
         let mut idx = 0;
         loop {
             let mut el: $el = 0;
-            if $step(&mut el) != 0 {
+            if unsafe { $step(&mut el) } != 0 {
                 break Ok(el);
             } else if idx == 127 {
                 break Err(ErrorCode::HardwareFailure);
