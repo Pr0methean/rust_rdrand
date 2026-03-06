@@ -36,6 +36,12 @@ jobs:
         os: [ubuntu-24.04-arm, windows-11-arm, macOS-latest]
     timeout-minutes: 20
     steps:
+      - name: CPU info (Unix)
+        if: ${{ matrix.os != 'windows-11-arm' }}
+        run: lscpu
+      - name: CPU info (Windows)
+        if: ${{ matrix.os == 'windows-11-arm' }}
+        run: wmic cpu
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
