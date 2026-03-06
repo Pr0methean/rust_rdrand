@@ -141,14 +141,6 @@ mod arch {
     }
 
     #[cfg(target_arch = "aarch64")]
-    pub(crate) unsafe fn rand16(out: &mut u16) -> i32 {
-        let mut out64 = 0u64;
-        let status = unsafe { rand(&mut out64) };
-        *out = out64 as u16;
-        status
-    }
-
-    #[cfg(target_arch = "aarch64")]
     pub(crate) unsafe fn seed(out: &mut u64) -> i32 {
         unsafe extern "C" {
             #[link_name = "llvm.aarch64.rndrrs"]
@@ -162,14 +154,6 @@ mod arch {
         let mut out64 = 0u64;
         let status = unsafe { seed(&mut out64) };
         *out = out64 as u32;
-        status
-    }
-
-    #[cfg(target_arch = "aarch64")]
-    pub(crate) unsafe fn seed16(out: &mut u16) -> i32 {
-        let mut out64 = 0u64;
-        let status = unsafe { seed(&mut out64) };
-        *out = out64 as u16;
         status
     }
 }
