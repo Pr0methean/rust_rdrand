@@ -255,7 +255,7 @@ macro_rules! is_available {
 }
 
 macro_rules! impl_rand {
-    ($gen:ident, $feat:tt, $loop_mode:tt, $step16: path, $step32:path, $step64:path,
+    ($gen:ident, $feat:tt, $loop_mode:tt, $step32:path, $step64:path,
      maxstep = $maxstep:path, maxty = $maxty: ty) => {
         impl $gen {
             /// Create a new instance of the random number generator.
@@ -402,7 +402,6 @@ impl_rand!(
     RdRand,
     "rdrand",
     "rdrand",
-    arch::_rdrand16_step,
     arch::_rdrand32_step,
     arch::_rdrand64_step,
     maxstep = arch::_rdrand64_step,
@@ -413,7 +412,6 @@ impl_rand!(
     RdSeed,
     "rdseed",
     "rdseed",
-    arch::_rdseed16_step,
     arch::_rdseed32_step,
     arch::_rdseed64_step,
     maxstep = arch::_rdseed64_step,
@@ -424,7 +422,6 @@ impl_rand!(
     RdRand,
     "rdrand",
     "rdrand",
-    arch::_rdrand16_step,
     arch::_rdrand32_step,
     arch::_rdrand64_step,
     maxstep = arch::_rdrand32_step,
@@ -435,7 +432,6 @@ impl_rand!(
     RdSeed,
     "rdseed",
     "rdseed",
-    arch::_rdseed16_step,
     arch::_rdseed32_step,
     arch::_rdseed64_step,
     maxstep = arch::_rdseed32_step,
@@ -446,7 +442,6 @@ impl_rand!(
     RdRand,
     "rand",
     "rdrand",
-    arch::rand16,
     arch::rand32,
     arch::rand,
     maxstep = arch::rand,
@@ -457,12 +452,53 @@ impl_rand!(
     RdSeed,
     "rand",
     "rdseed",
-    arch::seed16,
     arch::seed32,
     arch::seed,
     maxstep = arch::seed,
     maxty = u64
 );
+
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
+impl RdRand {
+    fn new() -> Result<Self, ErrorCode> {
+        Err(ErrorCode::UnsupportedInstruction)
+    }
+}
+
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
+impl TryRng for RdRand {
+    type Error = ErrorCode;
+    fn try_next_u32(&mut self) -> Result<u32, ErrorCode> {
+        Err(ErrorCode::UnsupportedInstruction)
+    }
+    fn try_next_u64(&mut self) -> Result<u64, ErrorCode> {
+        Err(ErrorCode::UnsupportedInstruction)
+    }
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), ErrorCode> {
+        Err(ErrorCode::UnsupportedInstruction)
+    }
+}
+
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
+impl RdSeed {
+    fn new() -> Result<Self, ErrorCode> {
+        Err(ErrorCode::UnsupportedInstruction)
+    }
+}
+
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64", target_arch = "aarch64")))]
+impl TryRng for RdSeed {
+    type Error = ErrorCode;
+    fn try_next_u32(&mut self) -> Result<u32, ErrorCode> {
+        Err(ErrorCode::UnsupportedInstruction)
+    }
+    fn try_next_u64(&mut self) -> Result<u64, ErrorCode> {
+        Err(ErrorCode::UnsupportedInstruction)
+    }
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), ErrorCode> {
+        Err(ErrorCode::UnsupportedInstruction)
+    }
+}
 
 #[cfg(test)]
 mod test {
