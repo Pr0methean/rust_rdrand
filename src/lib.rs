@@ -175,6 +175,7 @@ mod arch {
 macro_rules! loop_rand {
     ("rdrand", $el: ty, $step: path) => {{
         let mut idx = 0;
+        #[allow(unused_unsafe)]
         loop {
             let mut el: $el = 0;
             if unsafe { $step(&mut el) } != 0 {
@@ -187,6 +188,7 @@ macro_rules! loop_rand {
     }};
     ("rdseed", $el: ty, $step: path) => {{
         let mut idx = 0;
+        #[allow(unused_unsafe)]
         loop {
             let mut el: $el = 0;
             if unsafe { $step(&mut el) } != 0 {
@@ -367,6 +369,7 @@ macro_rules! impl_rand {
             #[inline(always)]
             fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), ErrorCode> {
                 #[target_feature(enable = $feat)]
+                #[allow(unused_unsafe)]
                 unsafe fn imp(dest: &mut [u8]) -> Result<(), ErrorCode> {
                     fn slow_fill_bytes<'a>(
                         mut left: &'a mut [u8],
