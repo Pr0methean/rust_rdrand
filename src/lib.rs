@@ -61,6 +61,7 @@
 //! [Agner’s instruction tables]: http://agner.org/optimize/
 #![cfg_attr(target_arch = "aarch64", feature(link_llvm_intrinsics))]
 #![cfg_attr(target_arch = "aarch64", allow(internal_features))]
+#![cfg_attr(test, no_std)]
 pub mod changelog;
 mod errors;
 
