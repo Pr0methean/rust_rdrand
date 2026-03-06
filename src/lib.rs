@@ -190,9 +190,10 @@ macro_rules! loop_rand {
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[allow(unused_unsafe)]
 #[inline(always)]
 fn authentic_amd() -> bool {
-    let cpuid0 = arch::__cpuid(0);
+    let cpuid0 = unsafe { arch::__cpuid(0) };
     matches!(
         (cpuid0.ebx, cpuid0.ecx, cpuid0.edx),
         (0x68747541, 0x444D4163, 0x69746E65)
@@ -213,10 +214,11 @@ fn has_rdrand(cpuid1: &arch::CpuidResult) -> bool {
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[allow(unused_unsafe)]
 #[inline(always)]
 fn has_rdseed() -> bool {
     const FLAG: u32 = 1 << 18;
-    (arch::__cpuid(7).ebx & FLAG) == FLAG
+    (unsafe { arch::__cpuid(7) }.ebx & FLAG) == FLAG
 }
 
 /// NB: On AMD processor families < 0x17, we want to unconditionally disable RDRAND
@@ -234,11 +236,12 @@ const FIRST_GOOD_AMD_FAMILY: u32 = 0x17;
 
 macro_rules! is_available {
     ("rdrand") => {{
+        #[allow(unused_unsafe)]
         if authentic_amd() {
-            let cpuid1 = arch::__cpuid(1);
+            let cpuid1 = unsafe { arch::__cpuid(1) };
             has_rdrand(&cpuid1) && amd_family(&cpuid1) >= FIRST_GOOD_AMD_FAMILY
         } else {
-            cfg!(target_feature = "rdrand") || has_rdrand(&arch::__cpuid(1))
+            cfg!(target_feature = "rdrand") || has_rdrand(&unsafe { arch::__cpuid(1) })
         }
     }};
     ("rand") => {{
@@ -246,8 +249,9 @@ macro_rules! is_available {
         unsafe { crate::arch::rand(&mut _test) == 0 }
     }};
     ("rdseed") => {{
+        #[allow(unused_unsafe)]
         if authentic_amd() {
-            amd_family(&arch::__cpuid(1)) >= FIRST_GOOD_AMD_FAMILY && has_rdseed()
+            amd_family(&unsafe { arch::__cpuid(1) }) >= FIRST_GOOD_AMD_FAMILY && has_rdseed()
         } else {
             cfg!(target_feature = "rdrand") || has_rdseed()
         }
@@ -301,8 +305,10 @@ macro_rules! impl_rand {
             /// In case `Err` is returned, the caller should assume that a non-recoverable failure
             /// has occured and use another random number genrator instead.
             #[inline(always)]
+            #[allow(unused_unsafe)]
             fn try_next_u32(&mut self) -> Result<u32, ErrorCode> {
                 #[target_feature(enable = $feat)]
+                #[allow(unused_unsafe)]
                 unsafe fn imp() -> Result<u32, ErrorCode> {
                     loop_rand!($loop_mode, u32, $step32)
                 }
@@ -326,6 +332,7 @@ macro_rules! impl_rand {
             #[inline(always)]
             fn try_next_u64(&mut self) -> Result<u64, ErrorCode> {
                 #[target_feature(enable = $feat)]
+                #[allow(unused_unsafe)]
                 unsafe fn imp() -> Result<u64, ErrorCode> {
                     loop_rand!($loop_mode, u64, $step64)
                 }
@@ -364,6 +371,7 @@ macro_rules! impl_rand {
                                 }
                                 ::core::mem::swap(&mut left, &mut right);
                             }
+                            #[allow(unused_unsafe)]
                             if buffer.is_empty() {
                                 word = unsafe { loop_rand!($loop_mode, $maxty, $maxstep) }?
                                     .to_ne_bytes();
@@ -381,7 +389,7 @@ macro_rules! impl_rand {
 
                     let destlen = dest.len();
                     if destlen > ::core::mem::size_of::<$maxty>() {
-                        let (left, mid, right) = dest.align_to_mut();
+                        let (left, mid, right) = unsafe { dest.align_to_mut() };
                         for el in mid {
                             *el = loop_rand!($loop_mode, $maxty, $maxstep)?;
                         }
