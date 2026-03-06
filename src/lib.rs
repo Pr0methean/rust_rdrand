@@ -59,7 +59,6 @@
 //! </table>
 //!
 //! [Agner’s instruction tables]: http://agner.org/optimize/
-#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(target_arch = "aarch64", feature(link_llvm_intrinsics))]
 #![cfg_attr(target_arch = "aarch64", allow(internal_features))]
 pub mod changelog;
@@ -67,13 +66,7 @@ mod errors;
 
 use core::hint::spin_loop;
 pub use errors::ErrorCode;
-use rand_core::{CryptoRng, Error, RngCore};
-
-#[cold]
-#[inline(never)]
-pub(crate) fn busy_loop_fail(code: ErrorCode) -> ! {
-    panic!("{}", code);
-}
+use rand_core::{TryCryptoRng, TryRng};
 
 /// A cryptographically secure statistically uniform, non-periodic and non-deterministic random bit
 /// generator.
@@ -102,8 +95,8 @@ pub struct RdRand(());
 #[derive(Clone, Copy)]
 pub struct RdSeed(());
 
-impl CryptoRng for RdRand {}
-impl CryptoRng for RdSeed {}
+impl TryCryptoRng for RdRand {}
+impl TryCryptoRng for RdSeed {}
 
 mod arch {
     #[cfg(target_arch = "x86")]
@@ -308,27 +301,9 @@ macro_rules! impl_rand {
             pub unsafe fn new_unchecked() -> Self {
                 $gen(())
             }
-
-            /// Generate a single random `u16` value.
-            ///
-            /// The underlying instruction may fail for variety reasons (such as actual hardware
-            /// failure or exhausted entropy), however the exact reason for the failure is not
-            /// usually exposed.
-            ///
-            /// This method will retry calling the instruction a few times, however if all the
-            /// attempts fail, it will return `None`.
-            ///
-            /// In case `Err` is returned, the caller should assume that a non-recoverable failure
-            /// has occured and use another random number genrator instead.
-            #[inline(always)]
-            pub fn try_next_u16(&self) -> Result<u16, ErrorCode> {
-                #[target_feature(enable = $feat)]
-                unsafe fn imp() -> Result<u16, ErrorCode> {
-                    loop_rand!($loop_mode, u16, $step16)
-                }
-                unsafe { imp() }
-            }
-
+        }
+        impl TryRng for $gen {
+            type Error = ErrorCode;
             /// Generate a single random `u32` value.
             ///
             /// The underlying instruction may fail for variety reasons (such as actual hardware
@@ -341,7 +316,7 @@ macro_rules! impl_rand {
             /// In case `Err` is returned, the caller should assume that a non-recoverable failure
             /// has occured and use another random number genrator instead.
             #[inline(always)]
-            pub fn try_next_u32(&self) -> Result<u32, ErrorCode> {
+            fn try_next_u32(&mut self) -> Result<u32, ErrorCode> {
                 #[target_feature(enable = $feat)]
                 unsafe fn imp() -> Result<u32, ErrorCode> {
                     loop_rand!($loop_mode, u32, $step32)
@@ -364,7 +339,7 @@ macro_rules! impl_rand {
             /// Note, that on 32-bit targets, there’s no underlying instruction to generate a
             /// 64-bit number, so it is emulated with the 32-bit version of the instruction.
             #[inline(always)]
-            pub fn try_next_u64(&self) -> Result<u64, ErrorCode> {
+            fn try_next_u64(&mut self) -> Result<u64, ErrorCode> {
                 #[target_feature(enable = $feat)]
                 unsafe fn imp() -> Result<u64, ErrorCode> {
                     loop_rand!($loop_mode, u64, $step64)
@@ -388,7 +363,7 @@ macro_rules! impl_rand {
             /// If an error is returned, the caller should assume that an non-recoverable hardware
             /// failure has occured and use another random number genrator instead.
             #[inline(always)]
-            pub fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), ErrorCode> {
+            fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), ErrorCode> {
                 #[target_feature(enable = $feat)]
                 unsafe fn imp(dest: &mut [u8]) -> Result<(), ErrorCode> {
                     fn slow_fill_bytes<'a>(
@@ -432,88 +407,6 @@ macro_rules! impl_rand {
                     }
                 }
                 unsafe { imp(dest) }
-            }
-        }
-
-        impl RngCore for $gen {
-            /// Generate a single random `u32` value.
-            ///
-            /// The underlying instruction may fail for variety reasons (such as actual hardware
-            /// failure or exhausted entropy), however the exact reason for the failure is not
-            /// usually exposed.
-            ///
-            /// # Panic
-            ///
-            /// This method will retry calling the instruction a few times, however if all the
-            /// attempts fail, it will `panic`.
-            ///
-            /// In case `panic` occurs, the caller should assume that an non-recoverable
-            /// hardware failure has occured and use another random number genrator instead.
-            #[inline(always)]
-            fn next_u32(&mut self) -> u32 {
-                match self.try_next_u32() {
-                    Ok(result) => result,
-                    Err(c) => busy_loop_fail(c),
-                }
-            }
-
-            /// Generate a single random `u64` value.
-            ///
-            /// The underlying instruction may fail for variety reasons (such as actual hardware
-            /// failure or exhausted entropy), however the exact reason for the failure is not
-            /// usually exposed.
-            ///
-            /// Note, that on 32-bit targets, there’s no underlying instruction to generate a
-            /// 64-bit number, so it is emulated with the 32-bit version of the instruction.
-            ///
-            /// # Panic
-            ///
-            /// This method will retry calling the instruction a few times, however if all the
-            /// attempts fail, it will `panic`.
-            ///
-            /// In case `panic` occurs, the caller should assume that an non-recoverable
-            /// hardware failure has occured and use another random number genrator instead.
-            #[inline(always)]
-            fn next_u64(&mut self) -> u64 {
-                match self.try_next_u64() {
-                    Ok(result) => result,
-                    Err(c) => busy_loop_fail(c),
-                }
-            }
-
-            /// Fill a buffer `dest` with random data.
-            ///
-            /// See `try_fill_bytes` for a more extensive documentation.
-            ///
-            /// # Panic
-            ///
-            /// This method will panic any time `try_fill_bytes` would return an error.
-            #[inline(always)]
-            fn fill_bytes(&mut self, dest: &mut [u8]) {
-                match self.try_fill_bytes(dest) {
-                    Ok(result) => result,
-                    Err(c) => busy_loop_fail(c),
-                }
-            }
-
-            /// Fill a buffer `dest` with random data.
-            ///
-            /// This method will use the most appropriate variant of the instruction available on
-            /// the machine to achieve the greatest single-core throughput, however it has a
-            /// slightly higher setup cost than the plain `next_u32` or `next_u64` methods.
-            ///
-            /// The underlying instruction may fail for variety reasons (such as actual hardware
-            /// failure or exhausted entropy), however the exact reason for the failure is not
-            /// usually exposed.
-            ///
-            /// This method will retry calling the instruction a few times, however if all the
-            /// attempts fail, it will return an error.
-            ///
-            /// If an error is returned, the caller should assume that an non-recoverable hardware
-            /// failure has occured and use another random number genrator instead.
-            #[inline(always)]
-            fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), Error> {
-                self.try_fill_bytes(dest).map_err(Into::into)
             }
         }
     };
@@ -589,13 +482,13 @@ impl_rand!(
 #[cfg(test)]
 mod test {
     use super::{RdRand, RdSeed};
-    use rand_core::RngCore;
+    use rand_core::{Rng, TryRng, UnwrapErr};
 
     #[test]
     fn rdrand_works() {
         let _ = RdRand::new().map(|mut r| {
-            r.next_u32();
-            r.next_u64();
+            r.try_next_u32().unwrap();
+            r.try_next_u64().unwrap();
         });
     }
 
@@ -604,7 +497,8 @@ mod test {
 
     #[test]
     fn fill_fills_all_bytes() {
-        let _ = RdRand::new().map(|mut r| {
+        let _ = RdRand::new().map(|r| {
+            let mut r = UnwrapErr(r);
             let mut test_buffer;
             let mut fill_buffer = FillBuffer([0; 64]); // make sure buffer is aligned to 8-bytes...
             let test_cases = [
@@ -648,8 +542,8 @@ mod test {
     #[test]
     fn rdseed_works() {
         let _ = RdSeed::new().map(|mut r| {
-            r.next_u32();
-            r.next_u64();
+            r.try_next_u32().unwrap();
+            r.try_next_u64().unwrap();
         });
     }
 }

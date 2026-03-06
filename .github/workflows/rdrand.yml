@@ -6,7 +6,7 @@ on:
     - '*.mkd'
     - 'LICENSE'
   pull_request:
-    types: [opened, repoened, synchronize]
+    types: [opened, reopened, synchronize]
 
 jobs:
   test_x86:
@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust_toolchain: [nightly, stable, 1.46.0]
+        rust_toolchain: [nightly, stable, 1.85.0]
         os: [ubuntu-latest, windows-latest, macos-26-intel]
         flags: ["", "--no-default-features", "--release", "--release --no-default-features"]
     timeout-minutes: 20
