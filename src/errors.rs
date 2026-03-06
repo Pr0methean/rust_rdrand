@@ -13,18 +13,10 @@ pub enum ErrorCode {
 }
 
 impl ErrorCode {
-    #[cfg(not(feature = "std"))]
     const fn as_randcore_code(self) -> core::num::NonZeroU32 {
         /// Arbitrary, off top of head bitmask for error codes that come from rdrand
         const RDRAND_TAG: u32 = rand_core::Error::CUSTOM_START + 0x3D34_7D00;
         unsafe { core::num::NonZeroU32::new_unchecked(RDRAND_TAG + self as u32) }
-    }
-}
-
-#[cfg(not(feature = "std"))]
-impl From<ErrorCode> for rand_core::Error {
-    fn from(code: ErrorCode) -> rand_core::Error {
-        code.as_randcore_code().into()
     }
 }
 
