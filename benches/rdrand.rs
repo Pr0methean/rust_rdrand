@@ -1,17 +1,18 @@
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
-use rand_core::RngCore;
+use rand_core::{Rng, TryRng, UnwrapErr};
+use rand::RngExt;
 
 fn bench_rdrand(c: &mut Criterion) {
     let mut gen = match rdrand::RdRand::new() {
-        Ok(g) => g,
+        Ok(g) => UnwrapErr(g),
         Err(_) => return,
     };
     let mut group = c.benchmark_group("rdrand");
 
     group
         .throughput(Throughput::Bytes(2))
-        .bench_function("try_next/u16", move |b| {
-            b.iter(move || gen.try_next_u16().unwrap())
+        .bench_function("next/u16", move |b| {
+            b.iter(move || gen.random::<u16>())
         });
     group
         .throughput(Throughput::Bytes(4))
@@ -44,15 +45,15 @@ fn bench_rdrand(c: &mut Criterion) {
 
 fn bench_rdseed(c: &mut Criterion) {
     let mut gen = match rdrand::RdSeed::new() {
-        Ok(g) => g,
+        Ok(g) => UnwrapErr(g),
         Err(_) => return,
     };
     let mut group = c.benchmark_group("rdseed");
 
     group
         .throughput(Throughput::Bytes(2))
-        .bench_function("try_next/u16", move |b| {
-            b.iter(move || gen.try_next_u16().unwrap())
+        .bench_function("next/u16", move |b| {
+            b.iter(move || gen.random::<u16>())
         });
     group
         .throughput(Throughput::Bytes(4))
