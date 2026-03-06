@@ -1,6 +1,5 @@
 //! Project changelog
 
-
 /// Fix the implementation of `try_fill_bytes` when the buffer is aligned but the size is not a
 /// multiple of a word size.
 pub mod r0_8_2 {}

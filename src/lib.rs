@@ -404,8 +404,8 @@ macro_rules! impl_rand {
                                 ::core::mem::swap(&mut left, &mut right);
                             }
                             if buffer.is_empty() {
-                                word =
-                                    unsafe { loop_rand!($loop_mode, $maxty, $maxstep) }?.to_ne_bytes();
+                                word = unsafe { loop_rand!($loop_mode, $maxty, $maxstep) }?
+                                    .to_ne_bytes();
                                 buffer = &word[..];
                             }
                             let len = left.len().min(buffer.len());
@@ -614,10 +614,10 @@ mod test {
                 (0, 63), // left is empty, right is non-empty.
                 (5, 63), // left and right both are non-empty.
                 (5, 61), // left and right both are non-empty.
-                (0, 8),   // 1 word-worth of data, aligned.
-                (1, 9),   // 1 word-worth of data, misaligned.
-                (0, 7),   // less than 1 word of data.
-                (1, 7),   // less than 1 word of data.
+                (0, 8),  // 1 word-worth of data, aligned.
+                (1, 9),  // 1 word-worth of data, misaligned.
+                (0, 7),  // less than 1 word of data.
+                (1, 7),  // less than 1 word of data.
             ];
             'outer: for &(start, end) in &test_cases {
                 test_buffer = [0; 64];
