@@ -59,7 +59,7 @@
 //! </table>
 //!
 //! [Agner’s instruction tables]: http://agner.org/optimize/
-#![no_std]
+#![cfg_attr(any(feature = "no_std", not(target_arch = "aarch64")), no_std)]
 pub mod changelog;
 mod errors;
 
@@ -274,7 +274,11 @@ macro_rules! is_available {
         }
     }};
     ("rand") => {{
+        #[cfg(feature = "no_std")]
         notstd_detect::is_aarch64_feature_detected!("rand")
+
+        #[cfg(not(feature = "no_std"))]
+        std::arch::is_aarch64_feature_detected!("rand")
     }};
     ("rdseed") => {{
         #[allow(unused_unsafe)]
