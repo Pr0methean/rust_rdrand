@@ -46,6 +46,8 @@ jobs:
         with:
           command: test
           args: --manifest-path=Cargo.toml -- --nocapture
+        env:
+          RUSTFLAGS: '-C target-feature=+rand'
   test_cross:
     runs-on: ubuntu-latest
     timeout-minutes: 20
