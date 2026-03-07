@@ -559,7 +559,7 @@ mod test {
             r.try_next_u32().unwrap();
             r.try_next_u64().unwrap();
         });
-        #[cfg(feature = "tests_fail_if_unsupported")]
+        #[cfg(any(all(target_feature = "rand", target_arch = "aarch64"), target_arch = "x86_64", target_arch = "x86"))]
         _status.unwrap();
     }
 
@@ -608,7 +608,7 @@ mod test {
                 panic!("wow, we broke it? {} {} {:?}", start, end, &test_buffer[..])
             }
         });
-        #[cfg(feature = "tests_fail_if_unsupported")]
+        #[cfg(any(all(target_feature = "rand", target_arch = "aarch64"), target_arch = "x86_64", target_arch = "x86"))]
         _status.unwrap();
     }
 
@@ -618,7 +618,7 @@ mod test {
             r.try_next_u32().unwrap();
             r.try_next_u64().unwrap();
         });
-        #[cfg(feature = "tests_fail_if_unsupported")]
+        #[cfg(any(all(target_feature = "rand", target_arch = "aarch64"), target_arch = "x86_64", target_arch = "x86"))]
         _status.unwrap();
     }
 }

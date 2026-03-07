@@ -15,8 +15,6 @@ name = "rdrand"
 harness = false
 
 [features]
-tests_fail_if_unsupported = []
-
 # Disable use of the std library on aarch64 (on other platforms, we don't use it anyway). Requires a nightly toolchain.
 no_std = ["dep:notstd_detect"]
 
