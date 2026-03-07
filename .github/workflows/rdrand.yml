@@ -33,27 +33,33 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        rust_toolchain: [nightly, stable, 1.86.0]
         os: [ubuntu-24.04-arm, windows-11-arm, macOS-latest]
     timeout-minutes: 20
     steps:
-      - name: CPU info (Ubuntu)
-        if: ${{ matrix.os == 'ubuntu-24.04-arm' }}
-        run: cat /proc/cpuinfo
-      - name: CPU info (MacOS)
-        if: ${{ matrix.os == 'macOS-latest' }}
-        run: system_profiler SPHardwareDataType
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
-            toolchain: nightly
+            toolchain: ${{ matrix.rust_toolchain }}
             profile: minimal
             default: true
       - uses: actions-rs/cargo@v1
         with:
           command: test
           args: --manifest-path=Cargo.toml -- --nocapture
+  test_cross:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v2
+      - uses: zijiren233/cargo-cross@v1.4.2
+        with:
+          command: test --features tests_fail_if_unsupported
+          targets: |
+            aarch64-unknown-linux-gnu
         env:
-          RUSTFLAGS: '-Zverify-llvm-ir'
+          QEMU_CPU: 'max'  # Ensures the emulated CPU has FEAT_RNG
+          RUSTFLAGS: '-C target-feature=+rand'
   bench:
     runs-on: ${{ matrix.os }}
     strategy:
