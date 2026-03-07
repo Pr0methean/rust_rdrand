@@ -273,13 +273,16 @@ macro_rules! is_available {
             cfg!(target_feature = "rdrand") || has_rdrand(&unsafe { arch::__cpuid(1) })
         }
     }};
-    ("rand") => {{
+    ("rand") => {
         #[cfg(feature = "no_std")]
-        notstd_detect::is_aarch64_feature_detected!("rand")
-
+        {
+            notstd_detect::is_aarch64_feature_detected!("rand")
+        }
         #[cfg(not(feature = "no_std"))]
-        std::arch::is_aarch64_feature_detected!("rand")
-    }};
+        {
+            std::arch::is_aarch64_feature_detected!("rand")
+        }
+    };
     ("rdseed") => {{
         #[allow(unused_unsafe)]
         if authentic_amd() {
