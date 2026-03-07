@@ -274,13 +274,17 @@ macro_rules! is_available {
         }
     }};
     ("rand") => {
-        #[cfg(feature = "no_std")]
+        #[cfg(all(target_arch="aarch64", feature = "no_std"))]
         {
             notstd_detect::is_aarch64_feature_detected!("rand")
         }
-        #[cfg(not(feature = "no_std"))]
+        #[cfg(all(target_arch="aarch64", not(feature = "no_std")))]
         {
             std::arch::is_aarch64_feature_detected!("rand")
+        }
+        #[cfg(not(target_arch="aarch64"))]
+        {
+            unreachable!()
         }
     };
     ("rdseed") => {{
