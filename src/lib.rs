@@ -59,8 +59,6 @@
 //! </table>
 //!
 //! [Agner’s instruction tables]: http://agner.org/optimize/
-#![cfg_attr(target_arch = "aarch64", feature(link_llvm_intrinsics))]
-#![cfg_attr(target_arch = "aarch64", allow(internal_features))]
 #![no_std]
 pub mod changelog;
 mod errors;
@@ -124,21 +122,31 @@ mod arch {
     }
 
     #[cfg(target_arch = "aarch64")]
-    #[repr(C)]
-    struct RawReturn {
-        pub value: i64,
-        pub status: bool,
-    }
+    use core::arch::asm;
 
     #[cfg(target_arch = "aarch64")]
     pub(crate) unsafe fn rand(out: &mut u64) -> i32 {
-        unsafe extern "C" {
-            #[link_name = "llvm.aarch64.rndr"]
-            pub fn rndr() -> RawReturn;
+        let value: u64;
+        let success: u64;
+
+        unsafe {
+            asm!(
+                "mrs {0}, S3_3_C2_C4_0", // RNDR
+                "cset {1:w}, cs",  // Set w{1} to 1 if carry flag is set, else 0
+                out(reg) value,
+                lateout(reg) success,
+                options(nostack)
+            );
         }
-        let RawReturn { value, status } = unsafe { rndr() };
-        *out = value as u64;
-        status as i32
+        *out = value;
+        // From ARM spec:
+        // If the hardware returns a genuine random number, PSTATE.NZCV is set to 0b0000.
+        //
+        // If the instruction cannot return a genuine random number in a reasonable period of
+        // time, PSTATE.NZCV is set to 0b0100 and the data value returned is 0.
+        // So the assembly code returns 0 for success and nonzero for failure, but loop_rand expects
+        // the opposite.
+        (success == 0) as i32  // Returns 1 for success, 0 for failure
     }
 
     #[cfg(target_arch = "aarch64")]
@@ -151,13 +159,21 @@ mod arch {
 
     #[cfg(target_arch = "aarch64")]
     pub(crate) unsafe fn seed(out: &mut u64) -> i32 {
-        unsafe extern "C" {
-            #[link_name = "llvm.aarch64.rndrrs"]
-            pub fn rndrrs() -> RawReturn;
+        let value: u64;
+        let success: u64;
+
+        unsafe {
+            asm!(
+                "mrs {0}, S3_3_C2_C4_1", // RNDRRS
+                "cset {1:w}, cs",  // Set w{1} to 1 if carry flag is set, else 0
+                out(reg) value,
+                lateout(reg) success,
+                options(nostack)
+            );
         }
-        let RawReturn { value, status } = unsafe { rndrrs() };
-        *out = value as u64;
-        status as i32
+
+        *out = value;
+        (success == 0) as i32  // See rand() above for note on the inverted status.
     }
 
     #[cfg(target_arch = "aarch64")]
@@ -528,10 +544,12 @@ mod test {
 
     #[test]
     fn rdrand_works() {
-        let _ = RdRand::new().map(|mut r| {
+        let _status = RdRand::new().map(|mut r| {
             r.try_next_u32().unwrap();
             r.try_next_u64().unwrap();
         });
+        #[cfg(feature = "tests_fail_if_unsupported")]
+        _status.unwrap();
     }
 
     #[repr(C, align(8))]
@@ -539,7 +557,7 @@ mod test {
 
     #[test]
     fn fill_fills_all_bytes() {
-        let _ = RdRand::new().map(|r| {
+        let _status = RdRand::new().map(|r| {
             let mut r = UnwrapErr(r);
             let mut test_buffer;
             let mut fill_buffer = FillBuffer([0; 64]); // make sure buffer is aligned to 8-bytes...
@@ -579,13 +597,17 @@ mod test {
                 panic!("wow, we broke it? {} {} {:?}", start, end, &test_buffer[..])
             }
         });
+        #[cfg(feature = "tests_fail_if_unsupported")]
+        _status.unwrap();
     }
 
     #[test]
     fn rdseed_works() {
-        let _ = RdSeed::new().map(|mut r| {
+        let _status = RdSeed::new().map(|mut r| {
             r.try_next_u32().unwrap();
             r.try_next_u64().unwrap();
         });
+        #[cfg(feature = "tests_fail_if_unsupported")]
+        _status.unwrap();
     }
 }
