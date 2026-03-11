@@ -256,7 +256,7 @@ fn has_rand() -> bool {
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-#[expect(unused_unsafe)]
+#[allow(unused_unsafe)]
 #[inline(always)]
 fn has_rdseed() -> bool {
     const FLAG: u32 = 1 << 18;
