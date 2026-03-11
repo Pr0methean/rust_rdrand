@@ -59,7 +59,6 @@
 //! </table>
 //!
 //! [Agner’s instruction tables]: http://agner.org/optimize/
-#![cfg_attr(any(feature = "no_std", not(target_arch = "aarch64")), no_std)]
 pub mod changelog;
 mod errors;
 
@@ -242,6 +241,20 @@ fn has_rdrand(cpuid1: &arch::CpuidResult) -> bool {
     cpuid1.ecx & FLAG == FLAG
 }
 
+#[cfg(target_arch = "aarch64")]
+#[inline(always)]
+fn has_rand() -> bool {
+    let value: u64;
+    unsafe {
+        asm!(
+            "mrs {0}, ID_AA64ISAR0_EL1", // feature register
+            out(reg) value,
+            options(nostack)
+        );
+    }
+    (value & 0xF000_0000_0000_0000) != 0
+}
+
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 #[allow(unused_unsafe)]
 #[inline(always)]
@@ -274,13 +287,9 @@ macro_rules! is_available {
         }
     }};
     ("rand") => {{
-        #[cfg(all(target_arch="aarch64", feature = "no_std"))]
+        #[cfg(target_arch="aarch64")]
         {
-            notstd_detect::is_aarch64_feature_detected!("rand")
-        }
-        #[cfg(all(target_arch="aarch64", not(feature = "no_std")))]
-        {
-            std::arch::is_aarch64_feature_detected!("rand")
+            has_rand()
         }
         #[cfg(not(target_arch="aarch64"))]
         {
