@@ -289,7 +289,7 @@ macro_rules! is_available {
     ("rand") => {{
         #[cfg(target_arch="aarch64")]
         {
-            has_rand()
+            cfg!(target_feature = "rand") || has_rand()
         }
         #[cfg(not(target_arch="aarch64"))]
         {
