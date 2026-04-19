@@ -1,5 +1,12 @@
 //! Project changelog
 
+/// ## Breaking changes
+///
+/// * Upgrade to `rand_core = ^0.10.0`.
+/// * Increase MSRV to 1.86.0.
+pub mod r0_8_3 {}
+
+
 
 /// Fix the implementation of `try_fill_bytes` when the buffer is aligned but the size is not a
 /// multiple of a word size.

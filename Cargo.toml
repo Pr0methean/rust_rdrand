@@ -7,18 +7,16 @@ keywords = ["rand", "rdrand", "rdseed", "random"]
 license = "ISC"
 repository = "https://github.com/nagisa/rust_rdrand/"
 documentation = "https://docs.rs/rdrand/0.8.2/"
-edition = "2018"
+edition = "2024"
+rust-version = "1.86.0"
 
 [[bench]]
 name = "rdrand"
 harness = false
 
 [dependencies]
-rand_core = { version = "0.6", default-features = false }
+rand_core = { version = "0.10", default-features = false }
 
 [dev-dependencies]
-criterion = "0.3"
-
-[features]
-default = ["std"]
-std = ["rand_core/std"]
+criterion = "0.8"
+rand = "0.10.0"
