@@ -569,36 +569,8 @@ impl RdRand {
 }
 
 #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-impl TryRng for RdRand {
-    type Error = ErrorCode;
-    fn try_next_u32(&mut self) -> Result<u32, ErrorCode> {
-        Err(ErrorCode::UnsupportedInstruction)
-    }
-    fn try_next_u64(&mut self) -> Result<u64, ErrorCode> {
-        Err(ErrorCode::UnsupportedInstruction)
-    }
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), ErrorCode> {
-        Err(ErrorCode::UnsupportedInstruction)
-    }
-}
-
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
 impl RdSeed {
     fn new() -> Result<Self, ErrorCode> {
-        Err(ErrorCode::UnsupportedInstruction)
-    }
-}
-
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-impl TryRng for RdSeed {
-    type Error = ErrorCode;
-    fn try_next_u32(&mut self) -> Result<u32, ErrorCode> {
-        Err(ErrorCode::UnsupportedInstruction)
-    }
-    fn try_next_u64(&mut self) -> Result<u64, ErrorCode> {
-        Err(ErrorCode::UnsupportedInstruction)
-    }
-    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), ErrorCode> {
         Err(ErrorCode::UnsupportedInstruction)
     }
 }
