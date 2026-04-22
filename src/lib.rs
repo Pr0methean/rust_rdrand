@@ -561,20 +561,6 @@ impl TryRng for RdSeed {
     }
 }
 
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-impl RdRand {
-    fn new() -> Result<Self, ErrorCode> {
-        Err(ErrorCode::UnsupportedInstruction)
-    }
-}
-
-#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
-impl RdSeed {
-    fn new() -> Result<Self, ErrorCode> {
-        Err(ErrorCode::UnsupportedInstruction)
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::{RdRand, RdSeed};
