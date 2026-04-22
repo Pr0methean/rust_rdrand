@@ -59,8 +59,12 @@
 //! </table>
 //!
 //! [Agner’s instruction tables]: http://agner.org/optimize/
+#![no_std]
 pub mod changelog;
 mod errors;
+
+#[cfg(target_arch = "aarch64")]
+use core::arch::asm;
 
 use core::hint::spin_loop;
 pub use errors::ErrorCode;
