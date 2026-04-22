@@ -149,7 +149,7 @@ mod arch {
         // time, PSTATE.NZCV is set to 0b0100 and the data value returned is 0.
         // So the assembly code returns 0 for success and nonzero for failure, but loop_rand expects
         // the opposite.
-        (success == 0) as i32  // Returns 1 for success, 0 for failure
+        (success == 0) as i32 // Returns 1 for success, 0 for failure
     }
 
     #[cfg(target_arch = "aarch64")]
@@ -176,7 +176,7 @@ mod arch {
         }
 
         *out = value;
-        (success == 0) as i32  // See rand() above for note on the inverted status.
+        (success == 0) as i32 // See rand() above for note on the inverted status.
     }
 
     #[cfg(target_arch = "aarch64")]
@@ -248,15 +248,118 @@ fn has_rdrand(cpuid1: &arch::CpuidResult) -> bool {
 #[cfg(target_arch = "aarch64")]
 #[inline(always)]
 fn has_rand() -> bool {
-    let value: u64;
+    #[cfg(linux)]
     unsafe {
-        asm!(
+        libc::getauxval(libc::AT_HWCAP) & (1 << 14) != 0 // HWCAP_RNG bit
+    }
+    #[cfg(windows)]
+    {
+        // On Windows, use IsProcessorFeaturePresent
+        use core::ffi::c_int;
+
+        extern "C" {
+            fn IsProcessorFeaturePresent(feature: c_int) -> i32;
+        }
+
+        const PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE: c_int = 34;
+
+        unsafe { IsProcessorFeaturePresent(PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE) != 0 }
+    }
+
+    #[cfg(macos)]
+    {
+        // On macOS, use sysctlbyname to check hw.optional.arm.FEAT_RNG
+        use core::ffi::CStr;
+        use core::ffi::c_int;
+
+        extern "C" {
+            fn sysctlbyname(
+                name: *const u8,
+                oldp: *mut u32,
+                oldlenp: *mut usize,
+                newp: *const std::ffi::c_void,
+                newlen: usize,
+            ) -> c_int;
+        }
+
+        let mut value: u32 = 0;
+        let mut size = std::mem::size_of::<u32>();
+        let name = b"hw.optional.arm.FEAT_RNG\0";
+
+        unsafe {
+            sysctlbyname(name.as_ptr(), &mut value, &mut size, std::ptr::null(), 0) == 0
+                && value != 0
+        }
+    }
+
+    #[cfg(freebsd)]
+    {
+        use core::ffi::c_int;
+
+        extern "C" {
+            fn sysctlbyname(
+                name: *const u8,
+                oldp: *mut u32,
+                oldlenp: *mut usize,
+                newp: *const core::ffi::c_void,
+                newlen: usize,
+            ) -> c_int;
+        }
+
+        let mut value: u32 = 0;
+        let mut size = core::mem::size_of::<u32>();
+        let name = b"hw.optional.aarch64_rndr\0";
+
+        unsafe {
+            sysctlbyname(name.as_ptr(), &mut value, &mut size, core::ptr::null(), 0) == 0
+                && value != 0
+        }
+    }
+
+    #[cfg(netbsd)]
+    {
+        use core::ffi::c_int;
+
+        extern "C" {
+            fn sysctl(
+                name: *const c_int,
+                namelen: c_uint,
+                oldp: *mut u32,
+                oldlenp: *mut usize,
+                newp: *const core::ffi::c_void,
+                newlen: usize,
+            ) -> c_int;
+        }
+
+        // NetBSD uses numeric sysctl MIB for hw.optional.aarch64_rndr
+        const CTL_HW: c_int = 6;
+        const HW_OPTIONAL: c_int = 24;
+        const HW_OPTIONAL_AARCH64_RNDR: c_int = 1;
+
+        let mib = [CTL_HW, HW_OPTIONAL, HW_OPTIONAL_AARCH64_RNDR];
+        let mut value: u32 = 0;
+        let mut size = core::mem::size_of::<u32>();
+
+        unsafe {
+            sysctl(mib.as_ptr(), 3, &mut value, &mut size, core::ptr::null(), 0) == 0 && value != 0
+        }
+    }
+
+    #[cfg(not(any(linux, macos, windows, freebsd, netbsd)))]
+    {
+        let value: u64;
+        unsafe {
+            // MRS is a privileged instruction (EL1), so only use it when the platform doesn't
+            // provide an alternative. When we don't have a platform, we're probably in kernel
+            // space, so we probably have the necessary privilege.
+            asm!(
             "mrs {0}, ID_AA64ISAR0_EL1", // feature register
             out(reg) value,
             options(nostack)
-        );
+            );
+        }
+        (value & 0xF000_0000_0000_0000) != 0
     }
-    (value & 0xF000_0000_0000_0000) != 0
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -291,11 +394,11 @@ macro_rules! is_available {
         }
     }};
     ("rand") => {{
-        #[cfg(target_arch="aarch64")]
+        #[cfg(target_arch = "aarch64")]
         {
             cfg!(target_feature = "rand") || has_rand()
         }
-        #[cfg(not(target_arch="aarch64"))]
+        #[cfg(not(target_arch = "aarch64"))]
         {
             unreachable!()
         }
@@ -631,7 +734,11 @@ mod test {
                 panic!("wow, we broke it? {} {} {:?}", start, end, &test_buffer[..])
             }
         });
-        #[cfg(any(all(target_feature = "rand", target_arch = "aarch64"), target_arch = "x86_64", target_arch = "x86"))]
+        #[cfg(any(
+            all(target_feature = "rand", target_arch = "aarch64"),
+            target_arch = "x86_64",
+            target_arch = "x86"
+        ))]
         _status.unwrap();
     }
 
@@ -641,7 +748,11 @@ mod test {
             r.try_next_u32().unwrap();
             r.try_next_u64().unwrap();
         });
-        #[cfg(any(all(target_feature = "rand", target_arch = "aarch64"), target_arch = "x86_64", target_arch = "x86"))]
+        #[cfg(any(
+            all(target_feature = "rand", target_arch = "aarch64"),
+            target_arch = "x86_64",
+            target_arch = "x86"
+        ))]
         _status.unwrap();
     }
 }
