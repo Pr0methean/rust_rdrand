@@ -4,7 +4,7 @@
 ///
 /// * Upgrade to `rand_core = ^0.10.0`.
 /// * Increase MSRV to 1.86.0.
-pub mod r0_8_3 {}
+pub mod r0_9_0 {}
 
 
 
