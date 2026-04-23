@@ -333,10 +333,19 @@ fn has_rand() -> bool {
         target_os = "none"
     )))]
     {
-        // When we can't detect the feature, assume it's unavailable unless compiling with
-        // `-Ctarget-feature=+rdrand` (in which case `has_rand` is bypassed altogether).
-        // FIXME: Detection on iOS should be possible, but no known method is future-proof.
-        false
+        #[cfg(feature = "std")]
+        {
+            extern crate std;
+            std::arch::is_aarch64_feature_detected!("rand")
+        }
+
+        #[cfg(not(feature = "std"))]
+        {
+            // When we can't detect the feature, assume it's unavailable unless compiling with
+            // `-Ctarget-feature=+rdrand` (in which case `has_rand` is bypassed altogether).
+            // FIXME: Detection on iOS should be possible, but no known method is future-proof.
+            false
+        }
     }
 }
 
