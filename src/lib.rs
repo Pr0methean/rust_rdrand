@@ -253,7 +253,7 @@ fn has_rand() -> bool {
 
         unsafe {
             const PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE: c_int = 34;
-            extern "C" {
+            unsafe extern "C" {
                 fn IsProcessorFeaturePresent(feature: c_int) -> i32;
             }
             IsProcessorFeaturePresent(PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE) != 0
@@ -270,7 +270,7 @@ fn has_rand() -> bool {
             let name = b"hw.optional.arm.FEAT_RNG\0";
             #[cfg(target_os = "freebsd")]
             let name = b"hw.optional.aarch64_rndr\0";
-            extern "C" {
+            unsafe extern "C" {
                 fn sysctlbyname(
                     name: *const u8,
                     oldp: *mut u32,
@@ -315,7 +315,7 @@ fn has_rand() -> bool {
         unsafe {
             use core::ffi::{c_int, c_uint, c_void};
 
-            extern "C" {
+            unsafe extern "C" {
                 fn sysctl(
                     name: *const c_int,
                     namelen: c_uint,
