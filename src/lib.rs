@@ -258,15 +258,11 @@ fn has_rand() -> bool {
             IsProcessorFeaturePresent(PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE) != 0
         }
     }
-
-    #[cfg(any(target_os = "macos", target_os = "freebsd"))]
+    #[cfg(any(target_os = "macos"))]
     {
         let mut value: u32 = 0;
         let mut size = core::mem::size_of::<u32>();
-        #[cfg(target_os = "macos")]
         let name = b"hw.optional.arm.FEAT_RNG\0";
-        #[cfg(target_os = "freebsd")]
-        let name = b"hw.optional.aarch64_rndr\0";
         unsafe extern "C" {
             fn sysctlbyname(
                 name: *const u8,
@@ -283,6 +279,7 @@ fn has_rand() -> bool {
     }
     #[cfg(target_os = "openbsd")]
     {
+        // FIXME: Not tested.
         const CTL_MACHDEP: c_int = 7;
         const CPU_ID_AA64ISAR0: c_int = 2;
 
@@ -308,39 +305,12 @@ fn has_rand() -> bool {
             false
         }
     }
-    #[cfg(target_os = "netbsd")]
-    {
-        use core::ffi::{c_int, c_uint, c_void};
-
-        unsafe extern "C" {
-            fn sysctl(
-                name: *const c_int,
-                namelen: c_uint,
-                oldp: *mut u32,
-                oldlenp: *mut usize,
-                newp: *const c_void,
-                newlen: usize,
-            ) -> c_int;
-        }
-
-        // NetBSD uses numeric sysctl MIB for hw.optional.aarch64_rndr
-        const CTL_HW: c_int = 6;
-        const HW_OPTIONAL: c_int = 24;
-        const HW_OPTIONAL_AARCH64_RNDR: c_int = 1;
-
-        let mib = [CTL_HW, HW_OPTIONAL, HW_OPTIONAL_AARCH64_RNDR];
-        let mut value: u32 = 0;
-        let mut size = core::mem::size_of::<u32>();
-
-        unsafe {
-            sysctl(mib.as_ptr(), 3, &mut value, &mut size, core::ptr::null(), 0) == 0 && value != 0
-        }
-    }
-    #[cfg(any(target_os = "linux", target_os = "android", target_os = "none"))]
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd", target_os = "netbsd". target_os = "none"))]
     {
         let value: u64;
         unsafe {
-            // MRS is a privileged instruction (EL1), but it's emulated on Linux.
+            // MRS is a privileged instruction (EL1),
+            // but it's emulated on Linux, FreeBSD and NetBSD.
             core::arch::asm!(
                 "mrs {0}, ID_AA64ISAR0_EL1", // feature register
                 out(reg) value,
