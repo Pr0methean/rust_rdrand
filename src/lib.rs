@@ -251,34 +251,33 @@ fn has_rand() -> bool {
         // On Windows, use IsProcessorFeaturePresent
         use core::ffi::c_int;
 
+        const PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE: c_int = 34;
+        unsafe extern "C" {
+            fn IsProcessorFeaturePresent(feature: c_int) -> i32;
+        }
         unsafe {
-            const PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE: c_int = 34;
-            unsafe extern "C" {
-                fn IsProcessorFeaturePresent(feature: c_int) -> i32;
-            }
             IsProcessorFeaturePresent(PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE) != 0
         }
     }
 
     #[cfg(any(target_os = "macos", target_os = "freebsd"))]
     {
-        // On macOS, use sysctlbyname to check hw.optional.arm.FEAT_RNG
+        let mut value: u32 = 0;
+        let mut size = core::mem::size_of::<u32>();
+        #[cfg(target_os = "macos")]
+        let name = b"hw.optional.arm.FEAT_RNG\0";
+        #[cfg(target_os = "freebsd")]
+        let name = b"hw.optional.aarch64_rndr\0";
+        unsafe extern "C" {
+            fn sysctlbyname(
+                name: *const u8,
+                oldp: *mut u32,
+                oldlenp: *mut usize,
+                newp: *const core::ffi::c_void,
+                newlen: usize,
+            ) -> core::ffi::c_int;
+        }
         unsafe {
-            let mut value: u32 = 0;
-            let mut size = core::mem::size_of::<u32>();
-            #[cfg(target_os = "macos")]
-            let name = b"hw.optional.arm.FEAT_RNG\0";
-            #[cfg(target_os = "freebsd")]
-            let name = b"hw.optional.aarch64_rndr\0";
-            unsafe extern "C" {
-                fn sysctlbyname(
-                    name: *const u8,
-                    oldp: *mut u32,
-                    oldlenp: *mut usize,
-                    newp: *const core::ffi::c_void,
-                    newlen: usize,
-                ) -> core::ffi::c_int;
-            }
             sysctlbyname(name.as_ptr(), &mut value, &mut size, core::ptr::null(), 0) == 0
                 && value != 0
         }
@@ -312,29 +311,29 @@ fn has_rand() -> bool {
     }
     #[cfg(target_os = "netbsd")]
     {
+        use core::ffi::{c_int, c_uint, c_void};
+
+        unsafe extern "C" {
+            fn sysctl(
+                name: *const c_int,
+                namelen: c_uint,
+                oldp: *mut u32,
+                oldlenp: *mut usize,
+                newp: *const c_void,
+                newlen: usize,
+            ) -> c_int;
+        }
+
+        // NetBSD uses numeric sysctl MIB for hw.optional.aarch64_rndr
+        const CTL_HW: c_int = 6;
+        const HW_OPTIONAL: c_int = 24;
+        const HW_OPTIONAL_AARCH64_RNDR: c_int = 1;
+
+        let mib = [CTL_HW, HW_OPTIONAL, HW_OPTIONAL_AARCH64_RNDR];
+        let mut value: u32 = 0;
+        let mut size = core::mem::size_of::<u32>();
+
         unsafe {
-            use core::ffi::{c_int, c_uint, c_void};
-
-            unsafe extern "C" {
-                fn sysctl(
-                    name: *const c_int,
-                    namelen: c_uint,
-                    oldp: *mut u32,
-                    oldlenp: *mut usize,
-                    newp: *const c_void,
-                    newlen: usize,
-                ) -> c_int;
-            }
-
-            // NetBSD uses numeric sysctl MIB for hw.optional.aarch64_rndr
-            const CTL_HW: c_int = 6;
-            const HW_OPTIONAL: c_int = 24;
-            const HW_OPTIONAL_AARCH64_RNDR: c_int = 1;
-
-            let mib = [CTL_HW, HW_OPTIONAL, HW_OPTIONAL_AARCH64_RNDR];
-            let mut value: u32 = 0;
-            let mut size = core::mem::size_of::<u32>();
-
             sysctl(mib.as_ptr(), 3, &mut value, &mut size, core::ptr::null(), 0) == 0 && value != 0
         }
     }
