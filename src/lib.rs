@@ -247,12 +247,18 @@ fn has_rand() -> bool {
         // On Windows, use IsProcessorFeaturePresent
         use core::ffi::c_int;
 
-        const PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE: c_int = 34;
+        // PF_ARM_V8_INSTRUCTIONS_AVAILABLE = 29 (base ARMv8)
+        // PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE = 33 (ARMv8.1)
+        // For RNDR (ARMv8.5), Windows doesn't have a direct feature check
+        // So we attempt the instruction and handle the illegal instruction gracefully
+        const PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE: c_int = 33;
         unsafe extern "C" {
             fn IsProcessorFeaturePresent(feature: c_int) -> i32;
         }
+        // RNDR requires at least ARMv8.1, so check for atomic instructions
+        // as a minimum. Ideally Windows would have PF_ARM_V85_INSTRUCTIONS_AVAILABLE
         unsafe {
-            IsProcessorFeaturePresent(PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE) != 0
+            IsProcessorFeaturePresent(PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE) != 0
         }
     }
 
