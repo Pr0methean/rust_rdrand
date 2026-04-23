@@ -254,9 +254,7 @@ fn has_rand() -> bool {
         // as a minimum.
         // FIXME: May falsely report available on rare hardware. Ideally Windows would have
         // a check specifically for RNDR.
-        unsafe {
-            IsProcessorFeaturePresent(PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE) != 0
-        }
+        unsafe { IsProcessorFeaturePresent(PF_ARM_V81_ATOMIC_INSTRUCTIONS_AVAILABLE) != 0 }
     }
     #[cfg(any(target_os = "macos"))]
     {
@@ -305,7 +303,12 @@ fn has_rand() -> bool {
             false
         }
     }
-    #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd", target_os = "netbsd". target_os = "none"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd".
+        target_os = "none"))]
     {
         let value: u64;
         unsafe {
