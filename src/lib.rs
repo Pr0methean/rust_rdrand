@@ -242,10 +242,6 @@ fn has_rdrand(cpuid1: &arch::CpuidResult) -> bool {
 #[cfg(target_arch = "aarch64")]
 #[inline(always)]
 fn has_rand() -> bool {
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    unsafe {
-        libc::getauxval(libc::AT_HWCAP) & (1 << 14) != 0 // HWCAP_RNG bit
-    }
     #[cfg(target_os = "windows")]
     {
         // On Windows, use IsProcessorFeaturePresent
@@ -337,12 +333,11 @@ fn has_rand() -> bool {
             sysctl(mib.as_ptr(), 3, &mut value, &mut size, core::ptr::null(), 0) == 0 && value != 0
         }
     }
-
-    #[cfg(target_os = "none")]
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "none"))]
     {
         let value: u64;
         unsafe {
-            // MRS is a privileged instruction (EL1), but when running on bare metal we can use it.
+            // MRS is a privileged instruction (EL1), but it's emulated on Linux.
             core::arch::asm!(
                 "mrs {0}, ID_AA64ISAR0_EL1", // feature register
                 out(reg) value,
