@@ -17,7 +17,7 @@ harness = false
 [dependencies]
 rand_core = { version = "0.10", default-features = false }
 
-[target.'cfg(linux)'.dependencies]
+[target.'cfg(any(linux,openbsd,android))'.dependencies]
 libc = "0.2.185"
 
 [dev-dependencies]

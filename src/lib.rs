@@ -248,11 +248,11 @@ fn has_rdrand(cpuid1: &arch::CpuidResult) -> bool {
 #[cfg(target_arch = "aarch64")]
 #[inline(always)]
 fn has_rand() -> bool {
-    #[cfg(linux)]
+    #[cfg(any(target_os = "linux", target_os = "android"))]
     unsafe {
         libc::getauxval(libc::AT_HWCAP) & (1 << 14) != 0 // HWCAP_RNG bit
     }
-    #[cfg(windows)]
+    #[cfg(target_os = "windows")]
     {
         // On Windows, use IsProcessorFeaturePresent
         use core::ffi::c_int;
@@ -266,7 +266,7 @@ fn has_rand() -> bool {
         unsafe { IsProcessorFeaturePresent(PF_ARM_V8_CRYPTO_INSTRUCTIONS_AVAILABLE) != 0 }
     }
 
-    #[cfg(macos)]
+    #[cfg(target_os = "macos")]
     {
         // On macOS, use sysctlbyname to check hw.optional.arm.FEAT_RNG
         use core::ffi::CStr;
@@ -291,8 +291,7 @@ fn has_rand() -> bool {
                 && value != 0
         }
     }
-
-    #[cfg(freebsd)]
+    #[cfg(target_os = "freebsd")]
     {
         use core::ffi::c_int;
 
@@ -315,8 +314,34 @@ fn has_rand() -> bool {
                 && value != 0
         }
     }
+    #[cfg(target_os = "openbsd")]
+    {
+        const CTL_MACHDEP: c_int = 7;
+        const CPU_ID_AA64ISAR0: c_int = 2;
 
-    #[cfg(netbsd)]
+        let mib = [CTL_MACHDEP, CPU_ID_AA64ISAR0];
+        let mut isar0: u64 = 0;
+        let mut len = std::mem::size_of_val(&isar0);
+
+        let result = unsafe {
+            libc::sysctl(
+                mib.as_ptr(),
+                mib.len() as u32,
+                &mut isar0 as *mut _ as *mut c_void,
+                &mut len,
+                std::ptr::null_mut(),
+                0,
+            )
+        };
+
+        if result == 0 {
+            // Extract the RND field (bits 60-63)
+            ((isar0 >> 60) & 0xF) >= 1
+        } else {
+            false
+        }
+    }
+    #[cfg(target_os = "netbsd")]
     {
         use core::ffi::c_int;
 
@@ -345,20 +370,31 @@ fn has_rand() -> bool {
         }
     }
 
-    #[cfg(not(any(linux, macos, windows, freebsd, netbsd)))]
+    #[cfg(target_os = "none")]
     {
         let value: u64;
         unsafe {
-            // MRS is a privileged instruction (EL1), so only use it when the platform doesn't
-            // provide an alternative. When we don't have a platform, we're probably in kernel
-            // space, so we probably have the necessary privilege.
+            // MRS is a privileged instruction (EL1), but when running on bare metal we can use it.
             asm!(
-            "mrs {0}, ID_AA64ISAR0_EL1", // feature register
-            out(reg) value,
-            options(nostack)
+                "mrs {0}, ID_AA64ISAR0_EL1", // feature register
+                out(reg) value,
+                options(nostack)
             );
         }
         (value & 0xF000_0000_0000_0000) != 0
+    }
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "none"
+    )))]
+    {
+        false
     }
 }
 
