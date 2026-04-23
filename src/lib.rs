@@ -63,9 +63,6 @@
 pub mod changelog;
 mod errors;
 
-#[cfg(target_arch = "aarch64")]
-use core::arch::asm;
-
 use core::hint::spin_loop;
 pub use errors::ErrorCode;
 use rand_core::{TryCryptoRng, TryRng};
@@ -133,7 +130,7 @@ mod arch {
         let success: u64;
 
         unsafe {
-            asm!(
+            core::arch::asm!(
                 "mrs {0}, S3_3_C2_C4_0", // RNDR
                 "cset {1:w}, cs",  // Set w{1} to 1 if carry flag is set, else 0
                 out(reg) value,
@@ -166,7 +163,7 @@ mod arch {
         let success: u64;
 
         unsafe {
-            asm!(
+            core::arch::asm!(
                 "mrs {0}, S3_3_C2_C4_1", // RNDRRS
                 "cset {1:w}, cs",  // Set w{1} to 1 if carry flag is set, else 0
                 out(reg) value,
@@ -283,11 +280,11 @@ fn has_rand() -> bool {
         }
 
         let mut value: u32 = 0;
-        let mut size = std::mem::size_of::<u32>();
+        let mut size = core::mem::size_of::<u32>();
         let name = b"hw.optional.arm.FEAT_RNG\0";
 
         unsafe {
-            sysctlbyname(name.as_ptr(), &mut value, &mut size, std::ptr::null(), 0) == 0
+            sysctlbyname(name.as_ptr(), &mut value, &mut size, core::ptr::null(), 0) == 0
                 && value != 0
         }
     }
@@ -321,7 +318,7 @@ fn has_rand() -> bool {
 
         let mib = [CTL_MACHDEP, CPU_ID_AA64ISAR0];
         let mut isar0: u64 = 0;
-        let mut len = std::mem::size_of_val(&isar0);
+        let mut len = core::mem::size_of_val(&isar0);
 
         let result = unsafe {
             libc::sysctl(
@@ -329,7 +326,7 @@ fn has_rand() -> bool {
                 mib.len() as u32,
                 &mut isar0 as *mut _ as *mut c_void,
                 &mut len,
-                std::ptr::null_mut(),
+                core::ptr::null_mut(),
                 0,
             )
         };
@@ -375,7 +372,7 @@ fn has_rand() -> bool {
         let value: u64;
         unsafe {
             // MRS is a privileged instruction (EL1), but when running on bare metal we can use it.
-            asm!(
+            core::arch::asm!(
                 "mrs {0}, ID_AA64ISAR0_EL1", // feature register
                 out(reg) value,
                 options(nostack)
