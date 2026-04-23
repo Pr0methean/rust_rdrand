@@ -307,7 +307,7 @@ fn has_rand() -> bool {
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
-        target_os = "netbsd".
+        target_os = "netbsd",
         target_os = "none"))]
     {
         let value: u64;
