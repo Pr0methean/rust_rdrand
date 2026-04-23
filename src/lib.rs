@@ -275,40 +275,13 @@ fn has_rand() -> bool {
                 && value != 0
         }
     }
-    #[cfg(target_os = "openbsd")]
-    {
-        // FIXME: Not tested.
-        const CTL_MACHDEP: c_int = 7;
-        const CPU_ID_AA64ISAR0: c_int = 2;
-
-        let mib = [CTL_MACHDEP, CPU_ID_AA64ISAR0];
-        let mut isar0: u64 = 0;
-        let mut len = core::mem::size_of_val(&isar0);
-
-        let result = unsafe {
-            libc::sysctl(
-                mib.as_ptr(),
-                mib.len() as u32,
-                &mut isar0 as *mut _ as *mut c_void,
-                &mut len,
-                core::ptr::null_mut(),
-                0,
-            )
-        };
-
-        if result == 0 {
-            // Extract the RND field (bits 60-63)
-            ((isar0 >> 60) & 0xF) >= 1
-        } else {
-            false
-        }
-    }
     #[cfg(any(
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
         target_os = "netbsd",
-        target_os = "none"))]
+        target_os = "none",
+        target_os = "uefi"))]
     {
         let value: u64;
         unsafe {
@@ -329,7 +302,7 @@ fn has_rand() -> bool {
         target_os = "macos",
         target_os = "freebsd",
         target_os = "netbsd",
-        target_os = "openbsd",
+        target_os = "uefi",
         target_os = "none"
     )))]
     {
@@ -341,10 +314,40 @@ fn has_rand() -> bool {
 
         #[cfg(not(feature = "std"))]
         {
-            // When we can't detect the feature, assume it's unavailable unless compiling with
-            // `-Ctarget-feature=+rdrand` (in which case `has_rand` is bypassed altogether).
-            // FIXME: Detection on iOS should be possible, but no known method is future-proof.
-            false
+            #[cfg(target_os = "openbsd")]
+            {
+                // FIXME: Not tested.
+                const CTL_MACHDEP: c_int = 7;
+                const CPU_ID_AA64ISAR0: c_int = 2;
+
+                let mib = [CTL_MACHDEP, CPU_ID_AA64ISAR0];
+                let mut isar0: u64 = 0;
+                let mut len = core::mem::size_of_val(&isar0);
+
+                let result = unsafe {
+                    libc::sysctl(
+                        mib.as_ptr(),
+                        mib.len() as u32,
+                        &mut isar0 as *mut _ as *mut c_void,
+                        &mut len,
+                        core::ptr::null_mut(),
+                        0,
+                    )
+                };
+
+                if result == 0 {
+                    // Extract the RND field (bits 60-63)
+                    ((isar0 >> 60) & 0xF) >= 1
+                } else {
+                    false
+                }
+            }
+            #[cfg(not(target_os = "openbsd"))] {
+                // When we can't detect the feature, assume it's unavailable unless compiling with
+                // `-Ctarget-feature=+rdrand` (in which case `has_rand` is bypassed altogether).
+                // FIXME: Detection on iOS should be possible, but no known method is future-proof.
+                false
+            }
         }
     }
 }
