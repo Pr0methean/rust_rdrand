@@ -344,7 +344,7 @@ fn has_rand() -> bool {
             }
             #[cfg(not(target_os = "openbsd"))] {
                 // When we can't detect the feature, assume it's unavailable unless compiling with
-                // `-Ctarget-feature=+rdrand` (in which case `has_rand` is bypassed altogether).
+                // `-Ctarget-feature=+rand` (in which case `has_rand` is bypassed altogether).
                 // FIXME: Detection on iOS should be possible, but no known method is future-proof.
                 false
             }
